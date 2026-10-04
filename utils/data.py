@@ -15,3 +15,31 @@ Implement (each takes a seed and returns NumPy arrays):
 Notes:
     Use rng = np.random.default_rng(seed)
 """
+import numpy as np
+
+def make_linear(
+        n: int, 
+        d: int, 
+        seed: int | None, 
+        noise=0.0,
+        intercept=True,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    """
+    Generate linear dataset with random Gaussian noise.
+    """
+    rng = np.random.default_rng(seed)
+
+    # Generate random weights and bias
+    true_coef = rng.uniform(-1, 1, d)
+
+    true_intercept = rng.standard_normal()
+    if not intercept:
+        true_b = 0.0
+
+    # Generate data
+    X = rng.normal(loc=0, scale=1, size=(n, d))
+    epsilon = rng.normal(loc=0, scale=noise, size=n)
+
+    y = X @ true_coef + epsilon
+
+    return X, y, true_coef, true_intercept
