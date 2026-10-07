@@ -28,9 +28,19 @@ class LinearRegression():
     """
     Solver types: normal, qr, svd, gd.
     """
-    def __init__(self, fit_intercept: bool = True, solver: str = "normal"):
+    def __init__(
+            self, 
+            fit_intercept: bool = True, 
+            solver: str = "normal",
+            num_epochs: int = 1000, 
+            tol: float = 1e-6,
+            learning_rate: float = 0.01
+            ):
         self.fit_intercept = fit_intercept
         self.solver = solver
+        self.num_epochs = num_epochs
+        self.tol = tol
+        self.learning_rate = learning_rate
 
     def fit(self, X, y, sample_weights=None):
 
@@ -45,20 +55,23 @@ class LinearRegression():
                 f"Unknown solver: {self.solver}. Choose from: {list(solvers)}."
             )
 
+        X, y = np.asarray(X), np.asarray(y)
+        if sample_weights is not None:
+            sample_weights = np.asarray(sample_weights)
+
+        # If solving for intercept, centre first
         if self.fit_intercept:
-            X_mean = np.mean(X, 0)
-            y_mean = np.mean(y, 0)
+            if sample_weights is not None:
+                X_mean = np.average(X, 0, sample_weights)
+                y_mean = np.average(y, 0, sample_weights)
+            else:
+                X_mean = np.mean(X, 0)
+                y_mean = np.mean(y, 0)
 
             X = X - X_mean
             y = y - y_mean
 
-        if sample_weights is not None:
-            if len(sample_weights) != X.shape[0]:
-                raise ValueError("Sample weights incorrect length.")
-            X *= sample_weights
-            y *= sample_weights
-
-        self.coef_ = solvers[self.solver](X, y)
+        self.coef_ = solvers[self.solver](X, y, sample_weights)
 
         if self.fit_intercept:
             self.intercept_ = y_mean - X_mean.T @ self.coef_
@@ -67,24 +80,24 @@ class LinearRegression():
 
         return self
 
-    def _solve_normal(self, X, y):
-        return np.linalg.solve(X.T @ X, X.T) @ y
+    def _solve_normal(self, X, y, sample_weights):
+        Xw = X if sample_weights is None else X * sample_weights[:, None]
+        return np.linalg.solve(
+            Xw.T @ X, Xw.T @ y
+        )
 
-    def _solve_qr():
-        pass
+    def _solve_qr(self, X, y, sample_weights):
+        raise NotImplementedError
 
-    def _solve_svd():
-        pass
+    def _solve_svd(self, X, y, sample_weights):
+        raise NotImplementedError
 
-    def _solve_gd(num_epochs: int, tol: float):
-        pass
-            
-
-
+    def _solve_gd(self, X, y, sample_weights, num_epochs, tol):
+        raise NotImplementedError
+        
     def predict(self, X):
-        if self.coef_ is None or self.intercept_ is None:
-            print("Model must be fit first, use .fit()")
-            # what here to break out of function?
+        if not hasattr(self, "coef_") or not hasattr(self, "intercept_"):
+            raise AttributeError("Model must be fit first, use .fit()")
 
         return X @ self.coef_ + self.intercept_
 
@@ -95,13 +108,19 @@ class RidgeRegression():
     """
     def __init__(
             self, 
-            fit_intercept: bool = True, 
             lam: float = 1.0,
-            solver: str = "normal", 
-        ):
-        self.fit_intercept = fit_intercept
+            fit_intercept: bool = True, 
+            solver: str = "normal",
+            num_epochs: int = 1000, 
+            tol: float = 1e-6,
+            learning_rate: float = 0.01
+            ):
         self.lam = lam
+        self.fit_intercept = fit_intercept
         self.solver = solver
+        self.num_epochs = num_epochs
+        self.tol = tol
+        self.learning_rate = learning_rate
 
     def fit(self, X, y, sample_weights=None):
 
@@ -116,14 +135,23 @@ class RidgeRegression():
                 f"Unknown solver: {self.solver}. Choose from: {list(solvers)}."
             )
 
+        X, y = np.asarray(X), np.asarray(y)
+        if sample_weights is not None:
+            sample_weights = np.asarray(sample_weights)
+
+        # If solving for intercept, centre first
         if self.fit_intercept:
-            X_mean = np.mean(X, 0)
-            y_mean = np.mean(y, 0)
+            if sample_weights is not None:
+                X_mean = np.average(X, 0, sample_weights)
+                y_mean = np.average(y, 0, sample_weights)
+            else:
+                X_mean = np.mean(X, 0)
+                y_mean = np.mean(y, 0)
 
             X = X - X_mean
             y = y - y_mean
 
-        self.coef_ = solvers[self.solver](X, y)
+        self.coef_ = solvers[self.solver](X, y, sample_weights)
 
         if self.fit_intercept:
             self.intercept_ = y_mean - X_mean.T @ self.coef_
@@ -132,23 +160,24 @@ class RidgeRegression():
 
         return self
 
-    def _solve_normal(self, X, y):
-        _, d = X.shape
-        return np.linalg.solve(X.T @ X + self.lam * np.eye(d), X.T) @ y
+    def _solve_normal(self, X, y, sample_weights):
+        Xw = X if sample_weights is None else X * sample_weights[:, None]
+        return np.linalg.solve(
+            Xw.T @ X + self.lam * np.eye(X.shape[1]), Xw.T @ y
+        )
 
-    def _solve_qr():
-        pass
+    def _solve_qr(self, X, y, sample_weights):
+        raise NotImplementedError
 
-    def _solve_svd():
-        pass
+    def _solve_svd(self, X, y, sample_weights):
+        raise NotImplementedError
 
-    def _solve_gd():
-        pass
-
+    def _solve_gd(self, X, y, sample_weights, num_epochs, tol):
+        raise NotImplementedError
+        
     def predict(self, X):
-        if self.coef_ is None or self.intercept_ is None:
-            print("Model must be fit first, use .fit()")
-            # what here to break out of function?
+        if not hasattr(self, "coef_") or not hasattr(self, "intercept_"):
+            raise AttributeError("Model must be fit first, use .fit()")
 
         return X @ self.coef_ + self.intercept_
 
